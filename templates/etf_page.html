@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block title %}ETF Components - ETFDb{% endblock %}
 {% block body %}
-<table>
+<table id="etf_table" class="tablesorter">
     <thead>
         <tr>
             <th>Ticker</th>
@@ -23,4 +23,14 @@
         {% endfor %}
     </tbody>
 </table>
+{% endblock %}
+{% block pagescript %}
+        <script type="text/javascript" src="{{url_for('static', filename='js/vendor/jquery.tablesorter.min.js')}}"></script> 
+        <script type="text/javascript">
+            $(document).ready(function() 
+                { 
+                    $("#etf_table").tablesorter(); 
+                } 
+            ); 
+        </script>
 {% endblock %}
