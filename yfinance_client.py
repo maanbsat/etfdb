@@ -26,35 +26,45 @@ class StockQuote(object):
     
     @property
     def percent_change(self):
-        return self.change / (self.last - self.change)
+        return self.change / (self.last - self.change) * 100
     
     def __repr__(self):
         return "<StockQuote('%s'): %f" % (self.ticker, self.last)
 
+def get_chunks(l, n):
+    while True:
+        if len(l) < n:
+            break
+        yield l[0:n]
+        l = l[n:]
+
+def make_yahoo_ticker(t):
+    return t.replace('.', '-')
+
 def get_quotes_iter(tickers):
-    url = ROOT_URL + '?' + urllib.urlencode({
-        'format': 'json',
-        'env': 'store://datatables.org/alltableswithkeys',
-        'q': 'select * from yahoo.finance.quote where symbol in (%s)' % (
-            ','.join(['"%s"' % x for x in tickers])
-        )
-    })
-    print(url)
-    res = json.load(urllib.urlopen(url))
-    for s in res['query']['results']['quote']:
-        yield StockQuote(
-            s['symbol'],
-            s['Name'],
-            Decimal(s['LastTradePriceOnly']),
-            Decimal(s['Change']),
-            Decimal(s['DaysLow']),
-            Decimal(s['DaysHigh']),
-            Decimal(s['YearLow']),
-            Decimal(s['YearHigh']),
-            long(s['Volume']),
-            long(s['AverageDailyVolume']),
-            s['MarketCapitalization'],
-        )
+    for chunk in get_chunks(tickers, 100):
+        url = ROOT_URL + '?' + urllib.urlencode({
+            'format': 'json',
+            'env': 'store://datatables.org/alltableswithkeys',
+            'q': 'select * from yahoo.finance.quote where symbol in (%s)' % (
+                ','.join(['"%s"' % make_yahoo_ticker(x) for x in chunk])
+            )
+        })
+        res = json.load(urllib.urlopen(url))
+        for s in res['query']['results']['quote']:
+            yield StockQuote(
+                s['symbol'],
+                s['Name'],
+                Decimal(s['LastTradePriceOnly']),
+                Decimal(s['Change']),
+                Decimal(s['DaysLow']),
+                Decimal(s['DaysHigh']),
+                Decimal(s['YearLow']),
+                Decimal(s['YearHigh']),
+                long(s['Volume']),
+                long(s['AverageDailyVolume']),
+                s['MarketCapitalization'],
+            )
 
 def get_quotes(tickers):
     out = {}

@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+{% block title %}ETF Components - ETFDb{% endblock %}
+{% block body %}
+<table>
+    <thead>
+        <tr>
+            <th>Ticker</th>
+            <th>Name</th>
+            <th>Last Price</th>
+            <th>Price Change</th>
+            <th>% Change</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for stock in components %}
+            <tr>
+                <td>{{ stock.ticker }}</td>
+                <td>{{ stock.name }}</td>
+                <td>{{ stock.last }}</td>
+                <td>{{ stock.change }}</td>
+                <td>{{ "%.2f"|format(stock.percent_change) }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
