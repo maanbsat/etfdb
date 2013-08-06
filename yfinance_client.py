@@ -8,10 +8,11 @@ ROOT_URL = 'http://query.yahooapis.com/v1/public/yql'
 
 class StockQuote(object):
     def __init__(
-        self, ticker, name, last, change,
+        self, original_ticker, ticker, name, last, change,
         day_low, day_high, year_low, year_high,
         volume, average_daily_volume, market_cap
     ):
+        self.original_ticker = original_ticker
         self.ticker = ticker
         self.name = name
         self.last = last
@@ -34,6 +35,7 @@ class StockQuote(object):
 def get_chunks(l, n):
     while True:
         if len(l) < n:
+            yield l
             break
         yield l[0:n]
         l = l[n:]
@@ -42,17 +44,22 @@ def make_yahoo_ticker(t):
     return t.replace('.', '-')
 
 def get_quotes_iter(tickers):
-    for chunk in get_chunks(tickers, 100):
+    ticker_map = dict([(make_yahoo_ticker(x), x) for x in tickers])
+    for chunk in get_chunks(ticker_map.keys(), 100):
         url = ROOT_URL + '?' + urllib.urlencode({
             'format': 'json',
             'env': 'store://datatables.org/alltableswithkeys',
             'q': 'select * from yahoo.finance.quote where symbol in (%s)' % (
-                ','.join(['"%s"' % make_yahoo_ticker(x) for x in chunk])
+                ','.join(['"%s"' % x for x in chunk])
             )
         })
+        #print(url)
         res = json.load(urllib.urlopen(url))
         for s in res['query']['results']['quote']:
+            if s['StockExchange'] is None:
+                continue
             yield StockQuote(
+                ticker_map[s['symbol']],
                 s['symbol'],
                 s['Name'],
                 Decimal(s['LastTradePriceOnly']),
@@ -69,7 +76,7 @@ def get_quotes_iter(tickers):
 def get_quotes(tickers):
     out = {}
     for x in get_quotes_iter(tickers):
-        out[x.ticker] = x
+        out[x.original_ticker] = x
     return out
 
 if __name__ == '__main__':

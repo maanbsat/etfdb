@@ -7,16 +7,18 @@
             <th>Ticker</th>
             <th>Name</th>
             <th>Last Price</th>
+            <th>Weight</th>
             <th>Price Change</th>
             <th>% Change</th>
         </tr>
     </thead>
     <tbody>
-        {% for stock in components %}
+        {% for stock in components.itervalues() %}
             <tr>
                 <td>{{ stock.ticker }}</td>
                 <td>{{ stock.name }}</td>
                 <td>{{ stock.last }}</td>
+                <td>{{ stock.weight*100 }}</td>
                 <td>{{ stock.change }}</td>
                 <td>{{ "%.2f"|format(stock.percent_change) }}</td>
             </tr>

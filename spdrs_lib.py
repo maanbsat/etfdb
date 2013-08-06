@@ -5,14 +5,14 @@ import urllib
 from xlrd import open_workbook
 
 class SPDRSLib(object):
-    URL = 'https://www.spdrs.com/site-content/xls/SPY_All_Holdings.xls?fund=SPY&docname=All+Holdings&onyx_code1=1286&onyx_code2=1700'
+    URL = 'https://www.spdrs.com/site-content/xls/%s_All_Holdings.xls?fund=%s&docname=All+Holdings'
 
     def __init__(self):
         pass
     
     @classmethod
     def get_etf(self, ticker):
-        url = self.URL
+        url = self.URL % (ticker, ticker)
         wb = open_workbook(file_contents=urllib.urlopen(url).read())
         sheet = wb.sheet_by_index(0)
         for l in range(5, sheet.nrows):

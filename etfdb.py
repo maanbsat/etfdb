@@ -11,6 +11,7 @@ def index():
 
 @app.route("/etf/<ticker>")
 def etf_page(ticker):
+    ticker = ticker.upper()
     res = get_etf_component_quotes(ticker)
     return render_template('etf_page.html', components=res)
 
