@@ -10,6 +10,7 @@
             <th>Weight</th>
             <th>Price Change</th>
             <th>% Change</th>
+            <th>% Change Contribution</th>
         </tr>
     </thead>
     <tbody>
@@ -21,6 +22,7 @@
                 <td>{{ stock.weight*100 }}</td>
                 <td>{{ stock.change }}</td>
                 <td>{{ "%.2f"|format(stock.percent_change) }}</td>
+                <td>{{ "%.2f"|format(stock.weight*stock.percent_change) }}</td>
             </tr>
         {% endfor %}
     </tbody>
@@ -31,7 +33,7 @@
         <script type="text/javascript">
             $(document).ready(function() 
                 { 
-                    $("#etf_table").tablesorter(); 
+                    $("#etf_table").tablesorter();
                 } 
             ); 
         </script>
