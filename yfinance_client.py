@@ -6,7 +6,8 @@ from threading import current_thread, Thread
 import urllib
 import json
 
-ROOT_URL = 'http://query.yahooapis.com/v1/public/yql'
+__all__ = ['get_quotes', 'StockQuote']
+
 NUM_SIMULTANEOUS_REQUESTS = 3
 
 class StockQuote(object):
@@ -35,67 +36,79 @@ class StockQuote(object):
     def __repr__(self):
         return "<StockQuote('%s'): %f" % (self.ticker, self.last)
 
-def get_chunks(l, n):
-    while True:
-        if len(l) < n:
-            if len(l) > 0:
-                yield l
-            break
-        yield l[0:n]
-        l = l[n:]
+class YRequester(object):
+    ROOT_URL = 'http://query.yahooapis.com/v1/public/yql'
 
-def make_yahoo_ticker(t):
-    return t.replace('.', '-')
+    def __init__(self, tickers):
+        self.job_queue = Queue()
+        self.results = []
+        self.tickers = tickers
+        self.ticker_map = dict([(self.make_yahoo_ticker(x), x) for x in tickers])
+    
+    @classmethod
+    def get_chunks(self, l, n):
+        while True:
+            if len(l) < n:
+                if len(l) > 0:
+                    yield l
+                break
+            yield l[0:n]
+            l = l[n:]
 
-def _quotes_worker(in_queue, out_list, ticker_map):
-    while not in_queue.empty():
-        chunk = in_queue.get()
-        url = ROOT_URL + '?' + urllib.urlencode({
-            'format': 'json',
-            'env': 'store://datatables.org/alltableswithkeys',
-            'q': 'select * from yahoo.finance.quote where symbol in (%s)' % (
-                ','.join(['"%s"' % x for x in chunk])
-            )
-        })
-        
-        # print("%s: %s" % (current_thread().name, url))
-        res = json.load(urllib.urlopen(url))
-        if 'query' not in res:
-            raise Exception("'query' not found in result: %s" % str(res))
-        for s in res['query']['results']['quote']:
-            if s['StockExchange'] is None:
-                continue
-            out_list.append(StockQuote(
-                ticker_map[s['symbol']],
-                s['symbol'],
-                s['Name'],
-                Decimal(s['LastTradePriceOnly']),
-                Decimal(s['Change']),
-                Decimal(s['DaysLow']),
-                Decimal(s['DaysHigh']),
-                Decimal(s['YearLow']),
-                Decimal(s['YearHigh']),
-                long(s['Volume']),
-                long(s['AverageDailyVolume']),
-                s['MarketCapitalization'],
-            ))
-        in_queue.task_done()
+    @classmethod
+    def make_yahoo_ticker(self, t):
+        return t.replace('.', '-')
+
+    def quotes_worker(self):
+        while not self.job_queue.empty():
+            chunk = self.job_queue.get()
+            try:
+                url = self.ROOT_URL + '?' + urllib.urlencode({
+                    'format': 'json',
+                    'env': 'store://datatables.org/alltableswithkeys',
+                    'q': 'select * from yahoo.finance.quote where symbol in (%s)' % (
+                        ','.join(['"%s"' % x for x in chunk])
+                    )
+                })
+                
+                # print("%s: %s" % (current_thread().name, url))
+                res = json.load(urllib.urlopen(url))
+                if 'query' not in res:
+                    raise Exception("'query' not found in result: %s" % str(res))
+                for s in res['query']['results']['quote']:
+                    if s['StockExchange'] is None:
+                        continue
+                    self.results.append(StockQuote(
+                        self.ticker_map[s['symbol']],
+                        s['symbol'],
+                        s['Name'],
+                        Decimal(s['LastTradePriceOnly']),
+                        Decimal(s['Change']),
+                        Decimal(s['DaysLow']),
+                        Decimal(s['DaysHigh']),
+                        Decimal(s['YearLow']),
+                        Decimal(s['YearHigh']),
+                        long(s['Volume']),
+                        long(s['AverageDailyVolume']),
+                        s['MarketCapitalization'],
+                    ))
+            finally:
+                self.job_queue.task_done()
+
+    def get_quotes(self):
+        for chunk in self.get_chunks(self.ticker_map.keys(), 100):
+            self.job_queue.put(chunk)
+        for i in range(NUM_SIMULTANEOUS_REQUESTS):
+            t = Thread(target=self.quotes_worker)
+            t.start()
+        self.job_queue.join()
+        out = {}
+        for q in self.results:
+            out[q.original_ticker] = q
+        return out
 
 def get_quotes(tickers):
-    job_queue = Queue()
-    res = []
-    ticker_map = dict([(make_yahoo_ticker(x), x) for x in tickers])
-    for chunk in get_chunks(ticker_map.keys(), 100):
-        # print("Chunk: %s" % str(chunk))
-        job_queue.put(chunk)
-    for i in range(NUM_SIMULTANEOUS_REQUESTS):
-        t = Thread(target=_quotes_worker, args=(job_queue, res, ticker_map))
-        t.start()
-    job_queue.join()
-    out = {}
-    for q in res:
-        out[q.original_ticker] = q
-    return out
+    return YRequester(tickers).get_quotes()
 
 if __name__ == '__main__':
     print(get_quotes(['AAPL', 'VNQ', 'SPY']))
